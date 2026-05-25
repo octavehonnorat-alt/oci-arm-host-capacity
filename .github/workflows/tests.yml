@@ -21,7 +21,7 @@ jobs:
         php-versions: ['8.3']
     name: integration-tests (PHP ${{ matrix.php-versions }})
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4 # Mis à jour pour éviter le blocage d'obsolescence d'avant
 
       - name: Verifier duree max (6h)
         env:
@@ -39,7 +39,7 @@ jobs:
             fi
           fi
 
-      # ÉTAPE CLÉ : Génère physiquement le fichier de clé privée pour le script PHP
+      # 🟢 AJOUT OBLIGATOIRE : Crée le fichier physique à partir de ton secret secret.OCI_PRIVATE_KEY
       - name: Create OCI Private Key File
         run: |
           echo "${{ secrets.OCI_PRIVATE_KEY }}" > oci_private_key.pem
@@ -49,7 +49,6 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php-versions }}
-          
       - name: Validate composer.json and composer.lock
         run: composer validate
 
@@ -57,7 +56,6 @@ jobs:
         id: composer-cache
         run: |
           echo "::set-output name=dir::$(composer config cache-files-dir)"
-          
       - uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
@@ -68,17 +66,17 @@ jobs:
       - name: Install dependencies
         run: |
           composer update --prefer-dist --no-progress
-          
-      # FIX : On lance la création de la VM et on mappe correctement les variables réticentes
-      - name: Execution du Sniper (Creation Instance ARM)
+      - name: Run test suite
         run: |
-          php index.php
+          vendor/bin/phpunit --color tests/
         env:
           OCI_REGION: ${{ secrets.OCI_REGION }}
           OCI_USER_ID: ${{ secrets.OCI_USER_ID }}
           OCI_TENANCY_ID: ${{ secrets.OCI_TENANCY_ID }}
           OCI_KEY_FINGERPRINT: ${{ secrets.OCI_KEY_FINGERPRINT }}
+          # 🟢 MODIFICATION : On lui donne le fichier qu'on vient de générer juste au-dessus
           OCI_PRIVATE_KEY_FILENAME: oci_private_key.pem
+          # 🟢 MODIFICATION : On force "auto" pour éviter que la variable vide bloque le script
           OCI_AVAILABILITY_DOMAIN: "auto"
           OCI_SUBNET_ID: ${{ secrets.OCI_SUBNET_ID }}
           OCI_IMAGE_ID: ${{ secrets.OCI_IMAGE_ID }}
@@ -87,3 +85,5 @@ jobs:
           OCI_SHAPE: ${{ secrets.OCI_SHAPE }}
           OCI_MAX_INSTANCES: ${{ secrets.OCI_MAX_INSTANCES }}
           OCI_SSH_PUBLIC_KEY: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
+          TELEGRAM_USER_ID: ${{ secrets.TELEGRAM_USER_ID }}
+          TELEGRAM_BOT_API_KEY: ${{ secrets.TELEGRAM_BOT_API_KEY }}
