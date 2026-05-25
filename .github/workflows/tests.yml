@@ -21,8 +21,8 @@ jobs:
         php-versions: ['8.3']
     name: integration-tests (PHP ${{ matrix.php-versions }})
     steps:
-      - uses: actions/checkout@v4 # Mis à jour en v4 pour éviter le prochain blocage
-      
+      - uses: actions/checkout@v4 # Mis à jour pour éviter le blocage d'obsolescence d'avant
+
       - name: Verifier duree max (6h)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -39,6 +39,12 @@ jobs:
             fi
           fi
 
+      # 🟢 AJOUT OBLIGATOIRE : Crée le fichier physique à partir de ton secret secret.OCI_PRIVATE_KEY
+      - name: Create OCI Private Key File
+        run: |
+          echo "${{ secrets.OCI_PRIVATE_KEY }}" > oci_private_key.pem
+          chmod 600 oci_private_key.pem
+
       - name: Install PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -50,7 +56,7 @@ jobs:
         id: composer-cache
         run: |
           echo "::set-output name=dir::$(composer config cache-files-dir)"
-      - uses: actions/cache@v4 # FIX : Mis à jour en v4 pour corriger l'erreur GitHub
+      - uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-${{ matrix.php-version }}-composer-${{ matrix.dependencies }}-${{ hashFiles('**/composer.lock') }}
@@ -68,8 +74,10 @@ jobs:
           OCI_USER_ID: ${{ secrets.OCI_USER_ID }}
           OCI_TENANCY_ID: ${{ secrets.OCI_TENANCY_ID }}
           OCI_KEY_FINGERPRINT: ${{ secrets.OCI_KEY_FINGERPRINT }}
-          OCI_PRIVATE_KEY_FILENAME: ${{ secrets.OCI_PRIVATE_KEY_FILENAME }}
-          OCI_AVAILABILITY_DOMAIN: ${{ secrets.OCI_AVAILABILITY_DOMAIN }}
+          # 🟢 MODIFICATION : On lui donne le fichier qu'on vient de générer juste au-dessus
+          OCI_PRIVATE_KEY_FILENAME: oci_private_key.pem
+          # 🟢 MODIFICATION : On force "auto" pour éviter que la variable vide bloque le script
+          OCI_AVAILABILITY_DOMAIN: "auto"
           OCI_SUBNET_ID: ${{ secrets.OCI_SUBNET_ID }}
           OCI_IMAGE_ID: ${{ secrets.OCI_IMAGE_ID }}
           OCI_OCPUS: ${{ secrets.OCI_OCPUS }}
