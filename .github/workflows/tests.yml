@@ -7,9 +7,11 @@ on:
   pull_request:
     branches:
       - main
-
-#  schedule:
+  schedule:
     - cron: '*/5 * * * *'
+
+permissions:
+  actions: write
 
 jobs:
   tests:
@@ -20,6 +22,23 @@ jobs:
     name: integration-tests (PHP ${{ matrix.php-versions }})
     steps:
       - uses: actions/checkout@v1
+      
+      - name: Verifier duree max (6h)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FIRST_RUN=$(gh run list --workflow="tests.yml" --json createdAt --jq 'if .|length > 0 then .[-1].createdAt else empty end')
+          if [ ! -z "$FIRST_RUN" ]; then
+            FIRST_TIMESTAMP=$(date -d "$FIRST_RUN" +%s)
+            CURRENT_TIMESTAMP=$(date +%s)
+            ELAPSED=$((CURRENT_TIMESTAMP - FIRST_TIMESTAMP))
+            if [ $ELAPSED -gt 21600 ]; then
+              echo "⚠️ 6 heures écoulées. Auto-désactivation du workflow."
+              gh workflow disable "tests.yml"
+              exit 0
+            fi
+          fi
+
       - name: Install PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -60,4 +79,3 @@ jobs:
           OCI_SSH_PUBLIC_KEY: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
           TELEGRAM_USER_ID: ${{ secrets.TELEGRAM_USER_ID }}
           TELEGRAM_BOT_API_KEY: ${{ secrets.TELEGRAM_BOT_API_KEY }}
-
